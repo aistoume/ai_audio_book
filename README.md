@@ -37,6 +37,10 @@ F:\Development\AIBook\
 │       ├── progress.json           # 断点续传进度
 │       ├── audio_chunks/*.wav      # 每块的 TTS 音频（用于断点续传）
 │       └── audiobook.mp3           # ✅ 最终合并后的完整有声书文件
+├── voice_samples/                  # 🎙️ 本地参考音色素材库（不上传到 git）
+│   └── README.md                   # 使用说明
+├── tools/
+│   └── prepare_voice.py            # 参考音色预处理工具（截取/降噪/标准化）
 └── src/
     ├── extractor.py                # 提取 PDF/TXT（支持子文件夹多卷合并）
     ├── text_splitter.py            # 按句号/逗号智能分块
