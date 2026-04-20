@@ -9,6 +9,10 @@ voice_samples/**/*.m4a
 voice_samples/**/*.flac
 voice_samples/**/*.ogg
 voice_samples/**/*.aac
+voice_samples/**/*.pkf
+
+# IndexTTS 特征缓存文件（任何位置）
+*.pkf
 
 # 所有生成的输出
 output/
