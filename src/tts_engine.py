@@ -6,10 +6,41 @@ import logging
 import os
 import struct
 import wave
+from pathlib import Path
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+VOICE_EXTS = (".wav", ".mp3", ".m4a", ".flac", ".ogg")
+
+
+def resolve_voice(voice: str, voice_samples_dir: str = "voice_samples") -> str:
+    """
+    解析 voice 参数为可用的音色标识（绝对路径或名字）。
+
+    优先级：
+      1. 如果是已存在的绝对/相对文件路径 → 返回绝对路径（传给服务端直接用）
+      2. 在 voice_samples/ 下递归查找匹配的文件名 → 返回绝对路径
+      3. 否则原样返回（让服务端在 characters/ 下查找）
+    """
+    # 1. 已经是文件路径
+    p = Path(voice)
+    if p.is_file():
+        return str(p.resolve())
+
+    # 2. 在 voice_samples/ 下递归查找
+    samples_root = Path(voice_samples_dir)
+    if samples_root.exists():
+        base_name = p.stem if p.suffix else voice
+        for f in samples_root.rglob("*"):
+            if f.is_file() and f.suffix.lower() in VOICE_EXTS:
+                if f.stem == base_name:
+                    logger.info(f"在 voice_samples/ 中找到音色: {f}")
+                    return str(f.resolve())
+
+    # 3. 原样返回，让服务端在 characters/ 下找
+    return voice
 
 
 class TTSEngine:
@@ -40,6 +71,11 @@ class TTSEngine:
         api_url = cfg["api_url"]
         token = cfg.get("token", "test_token")
         voice = cfg.get("voice", "alex")
+        # 自动解析：优先在项目的 voice_samples/ 下查找，传绝对路径给服务端
+        voice_samples_dir = self.config.get("processing", {}).get(
+            "voice_samples_dir", "voice_samples"
+        )
+        voice = resolve_voice(voice, voice_samples_dir)
         fmt = cfg.get("response_format", "wav")
         sample_rate = cfg.get("sample_rate", 24000)
         speed = cfg.get("speed", 1.0)

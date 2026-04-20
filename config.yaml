@@ -49,3 +49,4 @@ processing:
   min_chars_per_segment: 50    # 过短片段合并阈值
   books_dir: "books"
   output_dir: "output"
+  voice_samples_dir: "voice_samples"  # 参考音色素材库（相对项目根目录）
