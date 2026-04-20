@@ -56,10 +56,86 @@ class TTSEngine:
             return self._cosyvoice_tts(text, output_path)
         elif self.engine == "indextts":
             return self._indextts(text, output_path)
+        elif self.engine == "gpt_sovits":
+            return self._gpt_sovits(text, output_path)
         elif self.engine == "edge_tts":
             return self._edge_tts(text, output_path)
         else:
             raise ValueError(f"不支持的TTS引擎: {self.engine}")
+
+    def _gpt_sovits(self, text: str, output_path: str) -> str:
+        """
+        调用 GPT-SoVITS v2 FastAPI 服务（api_v2.py）。
+        端点: POST /tts
+        返回: 音频字节（wav/ogg/aac/raw）
+
+        GPT-SoVITS 与 IndexTTS 不同：需要 prompt_text（参考音频对应的文字）+ ref_audio_path。
+        """
+        cfg = self.config["tts"]["gpt_sovits"]
+        api_url = cfg["api_url"]
+
+        # 解析参考音频路径（同 IndexTTS 的逻辑，但 GPT-SoVITS 需要服务端能访问的绝对路径）
+        voice = cfg.get("voice", "")
+        voice_samples_dir = self.config.get("processing", {}).get(
+            "voice_samples_dir", "voice_samples"
+        )
+        ref_audio_path = resolve_voice(voice, voice_samples_dir) if voice else cfg.get("ref_audio_path", "")
+        if not ref_audio_path or not os.path.isabs(ref_audio_path):
+            # 转为绝对路径
+            ref_audio_path = os.path.abspath(ref_audio_path)
+
+        media_type = cfg.get("media_type", "wav")
+        timeout = cfg.get("timeout", 300)
+
+        payload = {
+            # 必需参数
+            "text": text,
+            "text_lang": cfg.get("text_lang", "zh"),         # zh/en/ja/ko 等
+            "ref_audio_path": ref_audio_path,
+            "prompt_lang": cfg.get("prompt_lang", "zh"),     # 参考音频的语言
+            # 推荐参数
+            "prompt_text": cfg.get("prompt_text", ""),       # 参考音频对应的文字
+            "text_split_method": cfg.get("text_split_method", "cut5"),
+            "speed_factor": cfg.get("speed_factor", 1.0),
+            "media_type": media_type,
+            "streaming_mode": False,
+            # 采样参数（影响质量）
+            "top_k": cfg.get("top_k", 15),
+            "top_p": cfg.get("top_p", 1.0),
+            "temperature": cfg.get("temperature", 1.0),
+            "repetition_penalty": cfg.get("repetition_penalty", 1.35),
+            "batch_size": cfg.get("batch_size", 1),
+            "parallel_infer": cfg.get("parallel_infer", True),
+        }
+
+        try:
+            resp = requests.post(
+                f"{api_url}/tts",
+                json=payload,
+                timeout=timeout,
+            )
+
+            if resp.status_code != 200:
+                # GPT-SoVITS 出错时返回 JSON
+                try:
+                    err = resp.json()
+                except ValueError:
+                    err = resp.text
+                raise RuntimeError(f"GPT-SoVITS HTTP {resp.status_code}: {err}")
+
+            # 修正输出路径扩展名
+            if not output_path.lower().endswith(f".{media_type}"):
+                output_path = os.path.splitext(output_path)[0] + f".{media_type}"
+
+            with open(output_path, "wb") as f:
+                f.write(resp.content)
+
+            logger.info(f"GPT-SoVITS 完成: {output_path}")
+            return output_path
+
+        except requests.RequestException as e:
+            logger.error(f"GPT-SoVITS 调用失败: {e}")
+            raise
 
     def _indextts(self, text: str, output_path: str) -> str:
         """

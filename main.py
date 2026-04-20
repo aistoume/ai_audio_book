@@ -329,7 +329,7 @@ def parse_args():
     # TTS 运行时参数（覆盖 config.yaml）
     parser.add_argument("--voice", help="参考音色名称，对应 IndexTTS characters/{voice}.wav，覆盖配置")
     parser.add_argument("--speed", type=float, help="语速，1.0=正常，0.9=慢10%%，1.1=快10%%")
-    parser.add_argument("--engine", choices=["indextts", "cosyvoice", "edge_tts"],
+    parser.add_argument("--engine", choices=["indextts", "gpt_sovits", "cosyvoice", "edge_tts"],
                         help="TTS 引擎，覆盖配置")
 
     return parser.parse_args()
@@ -356,6 +356,8 @@ def main():
     if args.speed is not None:
         if engine == "indextts":
             config["tts"]["indextts"]["speed"] = args.speed
+        elif engine == "gpt_sovits":
+            config["tts"]["gpt_sovits"]["speed_factor"] = args.speed
         elif engine == "cosyvoice":
             config["tts"]["cosyvoice"]["speed"] = args.speed
         logger.info(f"[覆盖] 语速: {args.speed}")

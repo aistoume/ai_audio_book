@@ -82,51 +82,94 @@ def _merge_wavs_native(input_files: list[str], output_path: str, gap_ms: int) ->
     return output_path
 
 
+def _probe_sample_rate(ffmpeg: str, audio_path: str) -> int:
+    """探测音频采样率，失败则返回 24000"""
+    try:
+        r = subprocess.run(
+            [ffmpeg, "-i", audio_path, "-hide_banner"],
+            capture_output=True, text=True,
+        )
+        # ffmpeg 把信息输出到 stderr
+        import re
+        m = re.search(r"(\d+)\s*Hz", r.stderr)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return 24000
+
+
 def _merge_with_ffmpeg(input_files: list[str], output_path: str, gap_ms: int) -> str:
-    """用 ffmpeg concat demuxer 合并任意格式的音频"""
+    """用 ffmpeg 合并任意格式的音频。
+
+    关键：先把所有输入+静默段统一采样率和声道数，再 concat demuxer，
+    避免段间参数不一致导致的 DTS 警告 / 播放异常。
+    """
     ffmpeg = _find_ffmpeg()
     if not ffmpeg:
         raise RuntimeError(
             "未找到 ffmpeg。请安装 ffmpeg 或通过 'pip install imageio-ffmpeg' 附带"
         )
 
-    # ffmpeg concat 需要一个文件列表
-    with tempfile.TemporaryDirectory() as tmp:
-        list_file = os.path.join(tmp, "list.txt")
+    # 以第一个输入文件的采样率为基准，所有段统一到这个率
+    target_sr = _probe_sample_rate(ffmpeg, input_files[0])
+    logger.debug(f"合并目标采样率: {target_sr} Hz")
 
-        # 准备静默段（如需要）
+    with tempfile.TemporaryDirectory() as tmp:
+        # 1. 把每个输入统一转成目标采样率/单声道 WAV 中间文件
+        normalized = []
+        for i, src in enumerate(input_files):
+            norm_path = os.path.join(tmp, f"seg_{i:05d}.wav")
+            subprocess.run(
+                [
+                    ffmpeg, "-y", "-i", src,
+                    "-ar", str(target_sr), "-ac", "1",
+                    "-c:a", "pcm_s16le",
+                    "-loglevel", "error",
+                    norm_path,
+                ],
+                check=True,
+            )
+            normalized.append(norm_path)
+
+        # 2. 静默段（如需要）
         silence_path = None
         if gap_ms > 0:
             silence_path = os.path.join(tmp, "silence.wav")
             subprocess.run(
                 [
                     ffmpeg, "-y", "-f", "lavfi",
-                    "-i", f"anullsrc=r=24000:cl=mono",
+                    "-i", f"anullsrc=r={target_sr}:cl=mono",
                     "-t", f"{gap_ms / 1000:.3f}",
+                    "-c:a", "pcm_s16le",
                     "-loglevel", "error",
                     silence_path,
                 ],
                 check=True,
             )
 
+        # 3. 写 concat 列表
+        list_file = os.path.join(tmp, "list.txt")
         with open(list_file, "w", encoding="utf-8") as f:
-            for i, af in enumerate(input_files):
-                abs_path = os.path.abspath(af).replace("\\", "/")
-                f.write(f"file '{abs_path}'\n")
-                if silence_path and i < len(input_files) - 1:
+            for i, af in enumerate(normalized):
+                f.write(f"file '{af.replace(chr(92), '/')}'\n")
+                if silence_path and i < len(normalized) - 1:
                     f.write(f"file '{silence_path.replace(chr(92), '/')}'\n")
 
+        # 4. concat 并编码为最终格式
         cmd = [
             ffmpeg, "-y",
             "-f", "concat", "-safe", "0",
             "-i", list_file,
-            "-c:a", "libmp3lame" if output_path.lower().endswith(".mp3") else "pcm_s16le",
-            "-loglevel", "error",
-            output_path,
         ]
+        if output_path.lower().endswith(".mp3"):
+            cmd += ["-c:a", "libmp3lame", "-b:a", "128k"]
+        else:
+            cmd += ["-c:a", "pcm_s16le"]
+        cmd += ["-loglevel", "error", output_path]
         subprocess.run(cmd, check=True)
 
-    logger.info(f"ffmpeg 合并完成: {output_path} ({len(input_files)} 段)")
+    logger.info(f"ffmpeg 合并完成: {output_path} ({len(input_files)} 段 @ {target_sr}Hz)")
     return output_path
 
 
