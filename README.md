@@ -93,9 +93,38 @@ characters/
 ```
 
 **d. 启动服务**：
+
+GPU 模式（默认，需要 NVIDIA GPU + CUDA）：
 ```bash
 python run.py --host 127.0.0.1 --port 8000
 ```
+
+**CPU 模式**（无 GPU 的电脑使用）：
+```bash
+python run.py --host 127.0.0.1 --port 8000 --device cpu --no-fp16
+```
+
+也可以通过环境变量设置：
+```bash
+# Windows cmd
+set TTS_DEVICE=cpu
+set TTS_FP16=0
+python run.py --host 127.0.0.1 --port 8000
+
+# Windows PowerShell
+$env:TTS_DEVICE="cpu"
+$env:TTS_FP16="0"
+python run.py --host 127.0.0.1 --port 8000
+
+# Linux/Mac
+TTS_DEVICE=cpu TTS_FP16=0 python run.py --host 127.0.0.1 --port 8000
+```
+
+> ⚠️ **CPU 模式性能提示：**
+> - 每段生成约需 1-3 分钟（GPU 只需 5-10 秒）
+> - 一本 5 万字书约 270 段 → 全量生成可能需要 **4-10 小时**
+> - 建议在 `config.yaml` 把 `indextts.timeout` 调到 `1800`（30 分钟）避免超时
+> - CPU 模式无法使用 FP16，质量与 GPU 模式基本一致
 
 ### 3️⃣ 运行 AIBook
 

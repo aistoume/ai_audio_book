@@ -16,7 +16,10 @@ tts:
     sample_rate: 24000
     speed: 1.0                 # 1.0=正常，0.9=慢10%，1.1=快10%
     gain: 0.0                  # 音量增益（dB）
-    timeout: 300               # 单段生成超时（秒）
+    # 单段生成超时（秒）
+    # - GPU(4090): 每段约 5-10 秒，timeout 300 足够
+    # - CPU 模式: 每段可能 1-3 分钟，建议 timeout 1800
+    timeout: 300
 
   # ---- CosyVoice2 ----
   cosyvoice:
