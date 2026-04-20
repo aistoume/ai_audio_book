@@ -1,0 +1,51 @@
+# AIBook 配置文件 —— 纯朗读模式（整本书生成单个音频文件）
+
+# ============================================================
+# TTS 配置
+# ============================================================
+tts:
+  # 推荐使用 indextts（最自然），其次 cosyvoice，最次 edge_tts
+  engine: "indextts"   # indextts | cosyvoice | edge_tts
+
+  # ---- IndexTTS（B站开源，书籍朗读效果接近真人）----
+  indextts:
+    api_url: "http://127.0.0.1:8000"
+    token: "test_token"
+    voice: "example1"          # 参考音色名称（对应 IndexTTS characters/example1.wav）
+    response_format: "wav"     # wav | mp3 | ogg
+    sample_rate: 24000
+    speed: 1.0                 # 1.0=正常，0.9=慢10%，1.1=快10%
+    gain: 0.0                  # 音量增益（dB）
+    timeout: 300               # 单段生成超时（秒）
+
+  # ---- CosyVoice2 ----
+  cosyvoice:
+    api_url: "http://127.0.0.1:50000"
+    mode: "sft"                # sft | zero_shot | instruct
+    speaker: "中文男"           # 中文女 / 中文男 / 粤语女 / 英文女 / 英文男 / 日语男 / 韩语女
+    speed: 0.9
+    sample_rate: 22050
+    instruct_text: ""
+
+  # ---- edge-tts（在线备用）----
+  edge_tts:
+    voice: "zh-CN-YunjianNeural"
+    rate: "-15%"
+    pitch: "+0Hz"
+    volume: "+0%"
+
+# ============================================================
+# 音频输出配置
+# ============================================================
+audio:
+  output_format: "mp3"   # 最终合并后的文件格式: mp3 | wav
+  gap_ms: 300            # 片段之间的静默时长（毫秒），让听感更自然
+
+# ============================================================
+# 文本处理配置
+# ============================================================
+processing:
+  max_chars_per_segment: 300   # 每段最大字符数（TTS 单次调用的输入长度）
+  min_chars_per_segment: 50    # 过短片段合并阈值
+  books_dir: "books"
+  output_dir: "output"

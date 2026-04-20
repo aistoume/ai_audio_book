@@ -1,0 +1,8 @@
+PyMuPDF>=1.24.0
+google-genai>=1.0.0
+moviepy>=2.0.0
+requests>=2.31.0
+pyyaml>=6.0
+edge-tts>=6.1.0
+Pillow>=10.0.0
+numpy>=1.24.0
